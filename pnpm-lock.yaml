@@ -104,6 +104,9 @@ importers:
       '@supabase/supabase-js':
         specifier: 2.95.3
         version: 2.95.3
+      '@tailwindcss/postcss':
+        specifier: ^4
+        version: 4.3.2
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -189,9 +192,6 @@ importers:
         specifier: ^4.3.5
         version: 4.4.3
     devDependencies:
-      '@tailwindcss/postcss':
-        specifier: ^4
-        version: 4.3.2
       '@types/node':
         specifier: ^20
         version: 20.19.43
