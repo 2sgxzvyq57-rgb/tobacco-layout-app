@@ -170,6 +170,9 @@ importers:
       tw-animate-css:
         specifier: ^1.4.0
         version: 1.4.0
+      typescript:
+        specifier: ^5
+        version: 5.9.3
       vaul:
         specifier: ^1.1.2
         version: 1.1.2(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -222,9 +225,6 @@ importers:
       tsx:
         specifier: ^4.19.2
         version: 4.23.0
-      typescript:
-        specifier: ^5
-        version: 5.9.3
 
 packages:
 
