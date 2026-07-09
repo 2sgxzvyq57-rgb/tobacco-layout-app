@@ -12,6 +12,7 @@ export default function Home() {
   const [layout, setLayout] = useState<StoreLayout | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [speechSupported, setSpeechSupported] = useState(true);
+  const [showAdjustPanel, setShowAdjustPanel] = useState(false);
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -89,7 +90,6 @@ export default function Home() {
       recognitionRef.current.start();
       setState('listening');
     } catch (e) {
-      // 可能已经在运行
       console.warn('Recognition start failed:', e);
     }
   }, [initRecognition]);
@@ -126,6 +126,7 @@ export default function Home() {
       if (data.success && data.data) {
         setLayout(data.data);
         setState('done');
+        setShowAdjustPanel(true);
       } else {
         setErrorMsg(data.error || '解析失败，请重试');
         setState('error');
@@ -143,15 +144,31 @@ export default function Home() {
     setTranscript('');
     setLayout(null);
     setErrorMsg('');
+    setShowAdjustPanel(false);
     if (recognitionRef.current) {
       recognitionRef.current.stop();
       recognitionRef.current = null;
     }
   }, []);
 
+  // 处理布局变更
+  const handleLayoutChange = useCallback((newLayout: StoreLayout) => {
+    setLayout(newLayout);
+  }, []);
+
+  // 更新店面尺寸
+  const updateStoreSize = useCallback((width: number, length: number) => {
+    if (!layout) return;
+    setLayout({
+      ...layout,
+      width: Math.max(1, width),
+      length: Math.max(1, length),
+    });
+  }, [layout]);
+
   // 示例文本
   const fillExample = useCallback(() => {
-    setTranscript('店面坐北朝南，门在南面墙中间位置，门宽1米。店面宽5米，长8米，总面积40平方米。进门后左手边靠西墙有一个柜台，宽2米，长1米，距南墙2米。右手边靠东墙有一个烟草展示柜，宽1.5米，长1米，距南墙1.5米。店面最里面北墙中间有一个仓储，宽2米，长1.5米。');
+    setTranscript('店面宽5米，长8米，总面积40平方米。门在南面墙中间位置，门宽1米。进门后左手边靠西墙有一个柜台，宽2米，长1米，距南墙2米。右手边靠东墙有一个烟草展示柜，宽1.5米，长1米，距南墙1.5米。店面最里面北墙中间有一个仓储，宽2米，长1.5米。');
   }, []);
 
   return (
@@ -238,7 +255,7 @@ export default function Home() {
                 ref={textareaRef}
                 value={transcript}
                 onChange={(e) => setTranscript(e.target.value)}
-                placeholder="例如：店面坐北朝南，门在南面墙中间，宽5米长8米。进门左手边有柜台，宽2米长1米。里面有仓储，宽2米长1.5米..."
+                placeholder="例如：店面宽5米长8米，门在南面墙中间。进门左手边有柜台，宽2米长1米。里面有仓储，宽2米长1.5米..."
                 className="w-full h-32 px-4 py-3 border border-gray-300 rounded-xl text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
               />
             </div>
@@ -287,10 +304,10 @@ export default function Home() {
             <div className="bg-gray-50 rounded-xl p-4 space-y-2">
               <p className="text-sm font-medium text-gray-700">语音描述要点：</p>
               <ul className="text-xs text-gray-500 space-y-1">
-                <li>1. 先说朝向：&quot;坐北朝南&quot;、&quot;坐西朝东&quot;</li>
+                <li>1. 先说店面尺寸：&quot;宽5米，长8米&quot;</li>
                 <li>2. 再说门的方位和位置：&quot;门在南面墙中间&quot;</li>
-                <li>3. 说店面尺寸：&quot;宽5米，长8米&quot;</li>
-                <li>4. 说物体位置和尺寸：&quot;柜台在进门左手边，宽2米长1米&quot;</li>
+                <li>3. 说物体位置和尺寸：&quot;柜台在进门左手边，宽2米长1米&quot;</li>
+                <li>4. 生成后可以拖拽调整物体位置、大小和方向</li>
               </ul>
             </div>
           </div>
@@ -302,10 +319,6 @@ export default function Home() {
             {/* 布局信息摘要 */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
               <div className="flex flex-wrap gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-500">朝向:</span>
-                  <span className="font-medium text-gray-900">{orientationLabel(layout.orientation)}</span>
-                </div>
                 <div className="flex items-center gap-2">
                   <span className="text-gray-500">尺寸:</span>
                   <span className="font-medium text-gray-900">{layout.width}m × {layout.length}m</span>
@@ -325,8 +338,81 @@ export default function Home() {
               </div>
             </div>
 
+            {/* 调整控制面板 */}
+            {showAdjustPanel && (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                    </svg>
+                    调整布局
+                  </h3>
+                  <button
+                    onClick={() => setShowAdjustPanel(false)}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    收起
+                  </button>
+                </div>
+
+                {/* 店面尺寸调整 */}
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-gray-700">店面尺寸</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">宽度（米）</label>
+                      <input
+                        type="number"
+                        value={layout.width}
+                        onChange={(e) => updateStoreSize(parseFloat(e.target.value) || 1, layout.length)}
+                        min="1"
+                        step="0.5"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">长度（米）</label>
+                      <input
+                        type="number"
+                        value={layout.length}
+                        onChange={(e) => updateStoreSize(layout.width, parseFloat(e.target.value) || 1)}
+                        min="1"
+                        step="0.5"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 操作提示 */}
+                <div className="bg-blue-50 rounded-xl p-3 space-y-1">
+                  <p className="text-sm font-medium text-blue-900">在布局图上直接操作：</p>
+                  <ul className="text-xs text-blue-700 space-y-1">
+                    <li>• 点击物体选中，拖拽移动位置</li>
+                    <li>• 拖拽右下角红色方块调整大小</li>
+                    <li>• 拖拽左上角绿色圆点旋转方向</li>
+                    <li>• 选中后可点击上方按钮旋转90°或删除</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {/* 收起状态时显示展开按钮 */}
+            {!showAdjustPanel && (
+              <button
+                onClick={() => setShowAdjustPanel(true)}
+                className="w-full py-3 bg-white border border-gray-200 rounded-2xl text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                </svg>
+                调整布局
+              </button>
+            )}
+
             {/* 布局图 */}
-            <LayoutCanvas layout={layout} />
+            <LayoutCanvas layout={layout} onLayoutChange={handleLayoutChange} />
 
             {/* 操作按钮 */}
             <div className="flex gap-3">
@@ -351,13 +437,6 @@ export default function Home() {
       </main>
     </div>
   );
-}
-
-function orientationLabel(dir: string): string {
-  const labels: Record<string, string> = {
-    north: '坐南朝北', south: '坐北朝南', east: '坐西朝东', west: '坐东朝西',
-  };
-  return labels[dir] || dir;
 }
 
 function wallLabel(dir: string): string {

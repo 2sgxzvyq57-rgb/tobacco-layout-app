@@ -1,10 +1,11 @@
 'use client';
 
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import type { StoreLayout, StoreObject } from '@/lib/types';
 
 interface LayoutCanvasProps {
   layout: StoreLayout | null;
+  onLayoutChange?: (layout: StoreLayout) => void;
   className?: string;
 }
 
@@ -17,50 +18,58 @@ const TYPE_COLORS: Record<string, { fill: string; stroke: string }> = {
   other:    { fill: '#F3E8FF', stroke: '#7C3AED' },  // 紫色 - 其他
 };
 
-/** 方向角度映射（用于指北针） */
-const DIR_ANGLES: Record<string, number> = {
-  north: 0,
-  east: 90,
-  south: 180,
-  west: 270,
-};
+/** 交互模式 */
+type InteractionMode = 'none' | 'drag' | 'resize' | 'rotate';
 
-export function LayoutCanvas({ layout, className = '' }: LayoutCanvasProps) {
+export function LayoutCanvas({ layout, onLayoutChange, className = '' }: LayoutCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+  const [mode, setMode] = useState<InteractionMode>('none');
+  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
+  const [objectStart, setObjectStart] = useState<{ x: number; y: number; width: number; length: number; rotation: number } | null>(null);
+
+  // 计算画布参数
+  const getCanvasParams = useCallback(() => {
+    if (!layout) return null;
+    
+    const W = 2000;
+    const H = 2000;
+    const padding = 280;
+    const drawW = W - padding * 2;
+    const drawH = H - padding * 2;
+
+    const scaleX = drawW / layout.width;
+    const scaleY = drawH / layout.length;
+    const scale = Math.min(scaleX, scaleY);
+
+    const storePixelW = layout.width * scale;
+    const storePixelH = layout.length * scale;
+
+    const offsetX = (W - storePixelW) / 2;
+    const offsetY = (H - storePixelH) / 2;
+
+    const toPixelX = (mx: number) => offsetX + mx * scale;
+    const toPixelY = (my: number) => offsetY + storePixelH - my * scale;
+    const toMeterX = (px: number) => (px - offsetX) / scale;
+    const toMeterY = (py: number) => (offsetY + storePixelH - py) / scale;
+
+    return { W, H, scale, offsetX, offsetY, storePixelW, storePixelH, toPixelX, toPixelY, toMeterX, toMeterY };
+  }, [layout]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || !layout) return;
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const params = getCanvasParams();
+    if (!params) return;
 
-    // 画布尺寸（内部高分辨率）
-    const W = 2000;
-    const H = 2000;
+    const { W, H, toPixelX, toPixelY, scale } = params;
+    
     canvas.width = W;
     canvas.height = H;
 
-    const padding = 280; // 留给标注线的空间
-    const drawW = W - padding * 2;
-    const drawH = H - padding * 2;
-
-    // 计算比例尺（米 -> 像素）
-    const scaleX = drawW / layout.width;
-    const scaleY = drawH / layout.length;
-    const scale = Math.min(scaleX, scaleY);
-
-    // 实际绘制区域
-    const storePixelW = layout.width * scale;
-    const storePixelH = layout.length * scale;
-
-    // 居中偏移
-    const offsetX = (W - storePixelW) / 2;
-    const offsetY = (H - storePixelH) / 2;
-
-    // 坐标转换：米 -> 像素（Y轴翻转，因为canvas Y向下）
-    const toPixelX = (mx: number) => offsetX + mx * scale;
-    const toPixelY = (my: number) => offsetY + storePixelH - my * scale;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
     // 清空画布
     ctx.fillStyle = '#FFFFFF';
@@ -76,16 +85,13 @@ export function LayoutCanvas({ layout, className = '' }: LayoutCanvasProps) {
     const area = layout.width * layout.length;
     ctx.font = '36px "PingFang SC", "Microsoft YaHei", sans-serif';
     ctx.fillStyle = '#6B7280';
-    ctx.fillText(
-      `${layout.width}m × ${layout.length}m = ${area.toFixed(1)}m²  |  朝向: ${orientationLabel(layout.orientation)}`,
-      W / 2, 130
-    );
+    ctx.fillText(`${layout.width}m × ${layout.length}m = ${area.toFixed(1)}m²`, W / 2, 130);
 
     // ===== 绘制店面轮廓 =====
     const sx = toPixelX(0);
     const sy = toPixelY(layout.length);
-    const sw = storePixelW;
-    const sh = storePixelH;
+    const sw = params.storePixelW;
+    const sh = params.storePixelH;
 
     // 填充浅色背景
     ctx.fillStyle = '#F9FAFB';
@@ -94,7 +100,7 @@ export function LayoutCanvas({ layout, className = '' }: LayoutCanvasProps) {
     // 画墙（考虑门的开口）
     ctx.strokeStyle = '#1F2937';
     ctx.lineWidth = 6;
-    drawWalls(ctx, layout, toPixelX, toPixelY, scale);
+    drawWalls(ctx, layout, toPixelX, toPixelY);
 
     // ===== 绘制尺寸标注线 =====
     drawDimensionLine(ctx, 
@@ -114,53 +120,275 @@ export function LayoutCanvas({ layout, className = '' }: LayoutCanvasProps) {
     // ===== 绘制物体 =====
     if (layout.objects) {
       for (const obj of layout.objects) {
-        drawObject(ctx, obj, toPixelX, toPixelY, scale);
+        const isSelected = obj.id === selectedObjectId;
+        drawObject(ctx, obj, toPixelX, toPixelY, scale, isSelected);
       }
     }
 
     // ===== 绘制指北针 =====
-    drawCompass(ctx, 140, H - 140, layout.orientation);
+    drawCompass(ctx, 140, H - 140);
 
-  }, [layout]);
+  }, [layout, selectedObjectId, getCanvasParams]);
 
   useEffect(() => {
     draw();
   }, [draw]);
+
+  // 鼠标/触摸事件处理
+  const getCanvasCoords = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    let clientX: number, clientY: number;
+    if ('touches' in e) {
+      if (e.touches.length === 0) return null;
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
+  }, []);
+
+  const findObjectAtPoint = useCallback((px: number, py: number): StoreObject | null => {
+    if (!layout) return null;
+    const params = getCanvasParams();
+    if (!params) return null;
+
+    const { toPixelX, toPixelY, scale } = params;
+
+    // 从后往前遍历，后绘制的物体在上面
+    for (let i = layout.objects.length - 1; i >= 0; i--) {
+      const obj = layout.objects[i];
+      const objPx = toPixelX(obj.x);
+      const objPy = toPixelY(obj.y + obj.length);
+      const objW = obj.width * scale;
+      const objH = obj.length * scale;
+
+      if (px >= objPx && px <= objPx + objW && py >= objPy && py <= objPy + objH) {
+        return obj;
+      }
+    }
+    return null;
+  }, [layout, getCanvasParams]);
+
+  const handlePointerDown = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    const coords = getCanvasCoords(e);
+    if (!coords || !layout) return;
+
+    const obj = findObjectAtPoint(coords.x, coords.y);
+    
+    if (obj) {
+      setSelectedObjectId(obj.id);
+      setDragStart({ x: coords.x, y: coords.y });
+      setObjectStart({ x: obj.x, y: obj.y, width: obj.width, length: obj.length, rotation: obj.rotation });
+      
+      // 检测是否在边缘（调整大小）或角落（旋转）
+      const params = getCanvasParams();
+      if (!params) return;
+      
+      const { toPixelX, toPixelY, scale } = params;
+      const objPx = toPixelX(obj.x);
+      const objPy = toPixelY(obj.y + obj.length);
+      const objW = obj.width * scale;
+      const objH = obj.length * scale;
+      
+      const edgeThreshold = 30;
+      
+      // 检测是否在右下角（调整大小）
+      if (Math.abs(coords.x - (objPx + objW)) < edgeThreshold && 
+          Math.abs(coords.y - (objPy + objH)) < edgeThreshold) {
+        setMode('resize');
+      } 
+      // 检测是否在左上角（旋转）
+      else if (Math.abs(coords.x - objPx) < edgeThreshold && 
+               Math.abs(coords.y - objPy) < edgeThreshold) {
+        setMode('rotate');
+      } 
+      // 否则是拖拽
+      else {
+        setMode('drag');
+      }
+    } else {
+      setSelectedObjectId(null);
+      setMode('none');
+    }
+  }, [layout, getCanvasCoords, findObjectAtPoint, getCanvasParams]);
+
+  const handlePointerMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    if (mode === 'none' || !dragStart || !objectStart || !selectedObjectId || !layout) return;
+    
+    const coords = getCanvasCoords(e);
+    if (!coords) return;
+
+    const params = getCanvasParams();
+    if (!params) return;
+
+    const { scale } = params;
+    const dx = (coords.x - dragStart.x) / scale;
+    const dy = -(coords.y - dragStart.y) / scale; // Y轴翻转
+
+    const updatedObjects = layout.objects.map(obj => {
+      if (obj.id !== selectedObjectId) return obj;
+
+      if (mode === 'drag') {
+        return {
+          ...obj,
+          x: Math.max(0, Math.min(layout.width - obj.width, objectStart.x + dx)),
+          y: Math.max(0, Math.min(layout.length - obj.length, objectStart.y + dy)),
+        };
+      } else if (mode === 'resize') {
+        const newWidth = Math.max(0.5, objectStart.width + dx);
+        const newLength = Math.max(0.5, objectStart.length + dy);
+        return {
+          ...obj,
+          width: Math.round(newWidth * 10) / 10,
+          length: Math.round(newLength * 10) / 10,
+        };
+      } else if (mode === 'rotate') {
+        // 计算旋转角度
+        const centerX = objectStart.x + objectStart.width / 2;
+        const centerY = objectStart.y + objectStart.length / 2;
+        const angle = Math.atan2(coords.y - (params.offsetY + params.storePixelH - centerY * scale), 
+                                  coords.x - (params.offsetX + centerX * scale));
+        let degrees = Math.round(angle * 180 / Math.PI);
+        degrees = ((degrees % 360) + 360) % 360;
+        return {
+          ...obj,
+          rotation: degrees,
+        };
+      }
+      return obj;
+    });
+
+    const newLayout = { ...layout, objects: updatedObjects };
+    onLayoutChange?.(newLayout);
+  }, [mode, dragStart, objectStart, selectedObjectId, layout, getCanvasCoords, getCanvasParams, onLayoutChange]);
+
+  const handlePointerUp = useCallback(() => {
+    setMode('none');
+    setDragStart(null);
+    setObjectStart(null);
+  }, []);
 
   /** 导出为PNG */
   const exportPNG = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const timestamp = new Date().toISOString().slice(0, 10);
-      a.download = `店面布局图_${timestamp}.png`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }, 'image/png');
-  }, []);
+    // 临时取消选中状态
+    const prevSelected = selectedObjectId;
+    setSelectedObjectId(null);
+    
+    setTimeout(() => {
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const timestamp = new Date().toISOString().slice(0, 10);
+        a.download = `店面布局图_${timestamp}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setSelectedObjectId(prevSelected);
+      }, 'image/png');
+    }, 100);
+  }, [selectedObjectId]);
+
+  /** 删除选中物体 */
+  const deleteSelectedObject = useCallback(() => {
+    if (!selectedObjectId || !layout) return;
+    const newLayout = {
+      ...layout,
+      objects: layout.objects.filter(obj => obj.id !== selectedObjectId),
+    };
+    onLayoutChange?.(newLayout);
+    setSelectedObjectId(null);
+  }, [selectedObjectId, layout, onLayoutChange]);
+
+  /** 旋转选中物体90度 */
+  const rotateSelectedObject = useCallback(() => {
+    if (!selectedObjectId || !layout) return;
+    const newLayout = {
+      ...layout,
+      objects: layout.objects.map(obj => {
+        if (obj.id !== selectedObjectId) return obj;
+        return {
+          ...obj,
+          rotation: (obj.rotation + 90) % 360,
+        };
+      }),
+    };
+    onLayoutChange?.(newLayout);
+  }, [selectedObjectId, layout, onLayoutChange]);
 
   return (
     <div className={`relative ${className}`}>
       <canvas
         ref={canvasRef}
-        className="w-full h-auto max-h-[70vh] border border-gray-200 rounded-lg shadow-sm bg-white"
+        className="w-full h-auto max-h-[70vh] border border-gray-200 rounded-lg shadow-sm bg-white cursor-pointer"
         style={{ aspectRatio: '1 / 1' }}
+        onMouseDown={handlePointerDown}
+        onMouseMove={handlePointerMove}
+        onMouseUp={handlePointerUp}
+        onMouseLeave={handlePointerUp}
+        onTouchStart={handlePointerDown}
+        onTouchMove={handlePointerMove}
+        onTouchEnd={handlePointerUp}
       />
+      
+      {/* 操作按钮 */}
       {layout && (
-        <button
-          onClick={exportPNG}
-          className="absolute top-3 right-3 px-4 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 active:scale-95 transition-all text-sm font-medium flex items-center gap-2"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
-          导出图片
-        </button>
+        <div className="absolute top-3 right-3 flex flex-col gap-2">
+          <button
+            onClick={exportPNG}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 active:scale-95 transition-all text-sm font-medium flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4 4m4 4V4" />
+            </svg>
+            导出图片
+          </button>
+          
+          {selectedObjectId && (
+            <>
+              <button
+                onClick={rotateSelectedObject}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg shadow-md hover:bg-green-700 active:scale-95 transition-all text-sm font-medium flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                旋转90°
+              </button>
+              <button
+                onClick={deleteSelectedObject}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg shadow-md hover:bg-red-700 active:scale-95 transition-all text-sm font-medium flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                删除
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* 操作提示 */}
+      {layout && selectedObjectId && (
+        <div className="absolute bottom-3 left-3 bg-black/70 text-white px-3 py-2 rounded-lg text-sm">
+          已选中物体 | 拖拽移动 | 右下角拖拽调整大小 | 左上角拖拽旋转
+        </div>
       )}
     </div>
   );
@@ -168,20 +396,12 @@ export function LayoutCanvas({ layout, className = '' }: LayoutCanvasProps) {
 
 // ===== 辅助绘制函数 =====
 
-function orientationLabel(dir: string): string {
-  const labels: Record<string, string> = {
-    north: '坐南朝北', south: '坐北朝南', east: '坐西朝东', west: '坐东朝西',
-  };
-  return labels[dir] || dir;
-}
-
 /** 绘制带门的墙壁 */
 function drawWalls(
   ctx: CanvasRenderingContext2D,
   layout: StoreLayout,
   toPixelX: (m: number) => number,
-  toPixelY: (m: number) => number,
-  _scale: number
+  toPixelY: (m: number) => number
 ) {
   const { width, length, door } = layout;
   const x0 = toPixelX(0);
@@ -191,31 +411,25 @@ function drawWalls(
   const w = x1 - x0;
   const h = y0 - y1;
 
-  // 计算门的开口位置（像素坐标）
   let doorStart: number, doorEnd: number;
   
   if (door.wall === 'south' || door.wall === 'north') {
-    const wallY = door.wall === 'south' ? y0 : y1;
     const centerPx = x0 + door.position * w;
     const halfDoorPx = (door.width * (w / width)) / 2;
     doorStart = centerPx - halfDoorPx;
     doorEnd = centerPx + halfDoorPx;
 
-    // 画有门开口的墙
     ctx.beginPath();
     if (door.wall === 'south') {
-      // 南墙（底部）- 分两段
       ctx.moveTo(x0, y0);
       ctx.lineTo(doorStart, y0);
       ctx.moveTo(doorEnd, y0);
       ctx.lineTo(x1, y0);
-      // 其他三面完整的墙
       ctx.moveTo(x1, y0);
       ctx.lineTo(x1, y1);
       ctx.lineTo(x0, y1);
       ctx.lineTo(x0, y0);
     } else {
-      // 北墙（顶部）
       ctx.moveTo(x0, y1);
       ctx.lineTo(doorStart, y1);
       ctx.moveTo(doorEnd, y1);
@@ -234,7 +448,6 @@ function drawWalls(
 
     ctx.beginPath();
     if (door.wall === 'east') {
-      // 东墙（右侧）
       ctx.moveTo(x1, y0);
       ctx.lineTo(x1, doorStart);
       ctx.moveTo(x1, doorEnd);
@@ -244,7 +457,6 @@ function drawWalls(
       ctx.lineTo(x0, y0);
       ctx.lineTo(x1, y0);
     } else {
-      // 西墙（左侧）
       ctx.moveTo(x0, y0);
       ctx.lineTo(x0, doorStart);
       ctx.moveTo(x0, doorEnd);
@@ -284,11 +496,9 @@ function drawDoor(
   if (door.wall === 'south') {
     cx = x0 + door.position * w;
     cy = y0;
-    // 门弧线（向内开）
     ctx.beginPath();
     ctx.arc(cx - doorWidthPx / 2, cy, doorWidthPx, -Math.PI / 2, 0);
     ctx.stroke();
-    // 门标签
     ctx.fillStyle = '#2563EB';
     ctx.font = 'bold 32px "PingFang SC", "Microsoft YaHei", sans-serif';
     ctx.textAlign = 'center';
@@ -326,19 +536,29 @@ function drawDoor(
   }
 }
 
-/** 绘制物体（矩形 + 名称 + 尺寸） */
+/** 绘制物体（矩形 + 名称 + 尺寸 + 选中高亮） */
 function drawObject(
   ctx: CanvasRenderingContext2D,
   obj: StoreObject,
   toPixelX: (m: number) => number,
   toPixelY: (m: number) => number,
-  scale: number
+  scale: number,
+  isSelected: boolean
 ) {
   const colors = TYPE_COLORS[obj.type] || TYPE_COLORS.other;
   const px = toPixelX(obj.x);
   const py = toPixelY(obj.y + obj.length);
   const pw = obj.width * scale;
   const ph = obj.length * scale;
+
+  // 选中高亮
+  if (isSelected) {
+    ctx.strokeStyle = '#EF4444';
+    ctx.lineWidth = 6;
+    ctx.setLineDash([10, 5]);
+    ctx.strokeRect(px - 5, py - 5, pw + 10, ph + 10);
+    ctx.setLineDash([]);
+  }
 
   // 填充
   ctx.fillStyle = colors.fill;
@@ -367,6 +587,18 @@ function drawObject(
     py + ph / 2 + 18
   );
   ctx.textBaseline = 'alphabetic';
+
+  // 调整大小手柄（右下角）
+  if (isSelected) {
+    ctx.fillStyle = '#EF4444';
+    ctx.fillRect(px + pw - 10, py + ph - 10, 20, 20);
+    
+    // 旋转手柄（左上角）
+    ctx.fillStyle = '#10B981';
+    ctx.beginPath();
+    ctx.arc(px + 10, py + 10, 10, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 /** 绘制尺寸标注线 */
@@ -384,13 +616,11 @@ function drawDimensionLine(
   ctx.lineWidth = 2;
   ctx.setLineDash([]);
 
-  // 主线
   ctx.beginPath();
   ctx.moveTo(x1, y1);
   ctx.lineTo(x2, y2);
   ctx.stroke();
 
-  // 端点引线
   if (side === 'bottom') {
     ctx.beginPath();
     ctx.moveTo(x1, y1 - 20);
@@ -399,7 +629,6 @@ function drawDimensionLine(
     ctx.lineTo(x2, y2 + 20);
     ctx.stroke();
 
-    // 箭头
     drawArrow(ctx, x1, y1, 'right', arrowSize);
     drawArrow(ctx, x2, y2, 'left', arrowSize);
   } else {
@@ -414,7 +643,6 @@ function drawDimensionLine(
     drawArrow(ctx, x2, y2, 'up', arrowSize);
   }
 
-  // 标签
   ctx.font = 'bold 32px "PingFang SC", "Microsoft YaHei", sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -469,8 +697,7 @@ function drawArrow(
 /** 绘制指北针 */
 function drawCompass(
   ctx: CanvasRenderingContext2D,
-  cx: number, cy: number,
-  orientation: string
+  cx: number, cy: number
 ) {
   const r = 60;
 
@@ -481,7 +708,7 @@ function drawCompass(
   ctx.lineWidth = 3;
   ctx.stroke();
 
-  // 北向箭头（始终指向上方，因为我们的布局图就是上北下南）
+  // 北向箭头（红色，指向上方）
   ctx.fillStyle = '#DC2626';
   ctx.beginPath();
   ctx.moveTo(cx, cy - r + 10);
@@ -490,7 +717,7 @@ function drawCompass(
   ctx.closePath();
   ctx.fill();
 
-  // 南向
+  // 南向（灰色）
   ctx.fillStyle = '#9CA3AF';
   ctx.beginPath();
   ctx.moveTo(cx, cy + r - 10);
@@ -499,16 +726,12 @@ function drawCompass(
   ctx.closePath();
   ctx.fill();
 
-  // N 标签
-  ctx.fillStyle = '#DC2626';
+  // 标签
   ctx.font = 'bold 28px "PingFang SC", "Microsoft YaHei", sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('N', cx, cy - r - 12);
-
-  // 方向标注
-  ctx.fillStyle = '#6B7280';
-  ctx.font = '20px "PingFang SC", "Microsoft YaHei", sans-serif';
-  ctx.fillText('S', cx, cy + r + 28);
-  ctx.fillText('E', cx + r + 20, cy + 8);
-  ctx.fillText('W', cx - r - 20, cy + 8);
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#DC2626';
+  ctx.fillText('N', cx, cy - r - 20);
+  ctx.fillStyle = '#9CA3AF';
+  ctx.fillText('S', cx, cy + r + 20);
 }

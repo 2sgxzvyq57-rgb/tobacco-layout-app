@@ -6,35 +6,33 @@ const SYSTEM_PROMPT = `你是一个烟草许可证实地核查助手，专门负
 
 ## 规则
 
-1. **朝向理解**：
-   - "坐北朝南" = 店面背面朝北、正面朝南，门在南面墙上
-   - "坐西朝东" = 门在东面墙上
-   - 以此类推，"朝X"表示门在X方向的墙面上
-
-2. **尺寸对应**：
-   - 宽度 = 店面横向尺寸（东西方向）
-   - 长度/进深 = 店面纵向尺寸（南北方向）
+1. **尺寸对应**：
+   - 宽度 = 店面横向尺寸
+   - 长度/进深 = 店面纵向尺寸
    - 总面积 = 宽度 × 长度，三者必须数学对应
    - 如果用户说的面积与宽×长不一致，以宽和长为准重新计算面积
 
-3. **坐标系**：
-   - 以店面左下角（西南角）为原点 (0, 0)
-   - X轴向右（东），Y轴向上（北）
+2. **坐标系**：
+   - 以店面左下角为原点 (0, 0)
+   - X轴向右，Y轴向上
    - 所有物体坐标是其左下角的位置
 
-4. **门的位置**：
-   - wall: 门所在的墙面方向 (north/south/east/west)
-   - position: 门在该墙面上的中心位置，0=左端，0.5=中间，1=右端
+3. **门的位置**：
+   - wall: 门所在的墙面方向 (north/south/east/west)，默认 south
+   - position: 门在该墙面上的中心位置，0=左端，0.5=中间，1=右端，默认 0.5
    - width: 门的宽度（米），默认1.0
 
-5. **物体描述**：
+4. **物体描述**：
    - 每个物体必须有明确的名称（如"柜台"、"仓储"、"烟草展示柜"）
    - 位置描述需要转换为坐标，如"进门右手边"需要根据门的位置推断
    - 如果只说了"靠墙"，则让物体紧贴对应墙面
+   - 每个物体必须有唯一的 id（如 "obj_1", "obj_2"）
+   - 每个物体的 rotation 默认为 0
 
-6. **默认值**：
+5. **默认值**：
    - 门宽度默认1.0米
    - 门位置默认在墙面中间(0.5)
+   - 门所在墙面默认 south
    - 如果用户没有明确说某个物体的尺寸，合理推断（柜台通常宽1-2米、长2-4米）
 
 ## 输出格式
@@ -43,7 +41,6 @@ const SYSTEM_PROMPT = `你是一个烟草许可证实地核查助手，专门负
 
 \`\`\`json
 {
-  "orientation": "south",
   "width": 5.0,
   "length": 8.0,
   "door": {
@@ -53,20 +50,24 @@ const SYSTEM_PROMPT = `你是一个烟草许可证实地核查助手，专门负
   },
   "objects": [
     {
+      "id": "obj_1",
       "name": "柜台",
       "type": "counter",
       "x": 0.5,
       "y": 2.0,
       "width": 2.0,
-      "length": 1.0
+      "length": 1.0,
+      "rotation": 0
     },
     {
+      "id": "obj_2",
       "name": "仓储",
       "type": "storage",
       "x": 3.5,
       "y": 6.0,
       "width": 1.5,
-      "length": 2.0
+      "length": 2.0,
+      "rotation": 0
     }
   ]
 }
@@ -123,6 +124,15 @@ export async function POST(request: NextRequest) {
     // 验证关键字段
     if (!layoutData.width || !layoutData.length || !layoutData.door) {
       throw new Error('AI返回的数据缺少必要字段');
+    }
+
+    // 确保每个物体都有 id 和 rotation
+    if (layoutData.objects) {
+      layoutData.objects = layoutData.objects.map((obj, index) => ({
+        ...obj,
+        id: obj.id || `obj_${index + 1}`,
+        rotation: obj.rotation ?? 0,
+      }));
     }
 
     // 确保面积对应

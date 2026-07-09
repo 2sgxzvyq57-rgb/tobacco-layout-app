@@ -1,6 +1,3 @@
-/** 店面朝向 */
-export type Orientation = 'north' | 'south' | 'east' | 'west';
-
 /** 门所在墙面 */
 export type WallDirection = 'north' | 'south' | 'east' | 'west';
 
@@ -16,19 +13,20 @@ export interface DoorInfo {
 
 /** 店内物体 */
 export interface StoreObject {
+  id: string;       // 唯一标识，用于选中操作
   name: string;
   type: ObjectType;
-  x: number;      // 左下角X坐标（米）
-  y: number;      // 左下角Y坐标（米）
-  width: number;   // 宽度（米）
-  length: number;  // 长度（米）
+  x: number;        // 左下角X坐标（米）
+  y: number;        // 左下角Y坐标（米）
+  width: number;    // 宽度（米）
+  length: number;   // 长度（米）
+  rotation: number; // 旋转角度（0-360度），0度表示默认朝向
 }
 
 /** 店面布局数据 */
 export interface StoreLayout {
-  orientation: Orientation;
-  width: number;   // 店面宽度（米）
-  length: number;  // 店面长度（米）
+  width: number;    // 店面宽度（米）
+  length: number;   // 店面长度（米）
   door: DoorInfo;
   objects: StoreObject[];
 }
