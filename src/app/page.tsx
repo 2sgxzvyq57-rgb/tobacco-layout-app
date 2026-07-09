@@ -56,11 +56,13 @@ export default function Home() {
     recognition.onerror = (event) => {
       console.error('Speech recognition error:', event.error);
       if (event.error === 'not-allowed') {
-        setErrorMsg('麦克风权限被拒绝，请允许麦克风访问');
+        setErrorMsg('麦克风权限被拒绝。请点击浏览器地址栏左侧的锁形图标，将"麦克风"设置为"允许"，然后刷新页面重试');
       } else if (event.error === 'no-speech') {
         setErrorMsg('未检测到语音，请重试');
+      } else if (event.error === 'service-not-allowed') {
+        setErrorMsg('麦克风服务被禁止，请在浏览器设置中允许麦克风访问');
       } else {
-        setErrorMsg(`语音识别错误: ${event.error}`);
+        setErrorMsg(`语音识别错误: ${event.error}，您可以直接在下方文本框手动输入`);
       }
       setState('error');
     };
@@ -224,12 +226,12 @@ export default function Home() {
             {/* 文本输入 */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-gray-700">语音识别文本（可手动修改）</label>
+                <label className="text-sm font-medium text-gray-700">店面描述（语音输入或直接打字）</label>
                 <button
                   onClick={fillExample}
                   className="text-xs text-blue-600 hover:text-blue-800 underline"
                 >
-                  填入示例
+                  没有语音？填入示例
                 </button>
               </div>
               <textarea
@@ -243,11 +245,17 @@ export default function Home() {
 
             {/* 错误提示 */}
             {errorMsg && state === 'error' && (
-              <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 flex items-center gap-2">
-                <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-                {errorMsg}
+              <div className="px-4 py-3 bg-amber-50 border border-amber-300 rounded-xl text-sm text-amber-800 space-y-2">
+                <div className="flex items-start gap-2">
+                  <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  <div>
+                    <p className="font-medium mb-1">语音输入提示</p>
+                    <p className="leading-relaxed">{errorMsg}</p>
+                  </div>
+                </div>
+                <p className="text-xs text-amber-600 pl-7">💡 您也可以直接在下方文本框中手动输入店面描述</p>
               </div>
             )}
 
