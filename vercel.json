@@ -1,5 +1,5 @@
 {
-  "buildCommand": "pnpm install && pnpm next build",
+  "buildCommand": "pnpm run vercel-build",
   "outputDirectory": ".next",
   "framework": "nextjs",
   "installCommand": "pnpm install"
