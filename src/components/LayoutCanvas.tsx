@@ -7,6 +7,7 @@ interface LayoutCanvasProps {
   layout: StoreLayout | null;
   onLayoutChange?: (layout: StoreLayout) => void;
   className?: string;
+  note?: string;
 }
 
 /** 物体类型对应的颜色 */
@@ -21,7 +22,7 @@ const TYPE_COLORS: Record<string, { fill: string; stroke: string }> = {
 /** 交互模式 */
 type InteractionMode = 'none' | 'drag' | 'resize' | 'rotate';
 
-export function LayoutCanvas({ layout, onLayoutChange, className = '' }: LayoutCanvasProps) {
+export function LayoutCanvas({ layout, onLayoutChange, className = '', note = '' }: LayoutCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [mode, setMode] = useState<InteractionMode>('none');
@@ -128,7 +129,12 @@ export function LayoutCanvas({ layout, onLayoutChange, className = '' }: LayoutC
     // ===== 绘制指北针 =====
     drawCompass(ctx, 140, H - 140);
 
-  }, [layout, selectedObjectId, getCanvasParams]);
+    // ===== 绘制备注 =====
+    if (note) {
+      drawNote(ctx, note, W, H);
+    }
+
+  }, [layout, selectedObjectId, getCanvasParams, note]);
 
   useEffect(() => {
     draw();
@@ -854,4 +860,76 @@ function drawCompass(
   ctx.fillText('N', cx, cy - r - 20);
   ctx.fillStyle = '#9CA3AF';
   ctx.fillText('S', cx, cy + r + 20);
+}
+
+/** 绘制备注文字 */
+function drawNote(
+  ctx: CanvasRenderingContext2D,
+  note: string,
+  canvasWidth: number,
+  canvasHeight: number
+) {
+  if (!note) return;
+
+  const padding = 40;
+  const maxWidth = canvasWidth - padding * 2;
+  const lineHeight = 36;
+  const fontSize = 28;
+
+  ctx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+
+  // 计算文字换行
+  const lines: string[] = [];
+  const paragraphs = note.split('\n');
+  
+  for (const paragraph of paragraphs) {
+    if (!paragraph) {
+      lines.push('');
+      continue;
+    }
+    
+    let currentLine = '';
+    for (const char of paragraph) {
+      const testLine = currentLine + char;
+      const metrics = ctx.measureText(testLine);
+      if (metrics.width > maxWidth && currentLine) {
+        lines.push(currentLine);
+        currentLine = char;
+      } else {
+        currentLine = testLine;
+      }
+    }
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+  }
+
+  // 计算备注区域位置（底部）
+  const noteHeight = lines.length * lineHeight + padding;
+  const noteY = canvasHeight - noteHeight - 20;
+
+  // 绘制背景
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+  ctx.fillRect(padding - 10, noteY - 10, canvasWidth - padding * 2 + 20, noteHeight + 20);
+  
+  // 绘制边框
+  ctx.strokeStyle = '#9333EA';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(padding - 10, noteY - 10, canvasWidth - padding * 2 + 20, noteHeight + 20);
+
+  // 绘制标题
+  ctx.fillStyle = '#9333EA';
+  ctx.font = `bold ${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+  ctx.fillText('备注：', padding, noteY);
+
+  // 绘制内容
+  ctx.fillStyle = '#1F2937';
+  ctx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+  let y = noteY + lineHeight;
+  for (const line of lines) {
+    ctx.fillText(line, padding, y);
+    y += lineHeight;
+  }
 }

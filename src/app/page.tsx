@@ -13,8 +13,12 @@ export default function Home() {
   const [errorMsg, setErrorMsg] = useState('');
   const [speechSupported, setSpeechSupported] = useState(true);
   const [showAdjustPanel, setShowAdjustPanel] = useState(false);
+  const [note, setNote] = useState('');
+  const [isRecordingNote, setIsRecordingNote] = useState(false);
+  const [isEditingNote, setIsEditingNote] = useState(false);
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const noteRecognitionRef = useRef<SpeechRecognition | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // 检查浏览器是否支持语音识别
@@ -145,9 +149,15 @@ export default function Home() {
     setLayout(null);
     setErrorMsg('');
     setShowAdjustPanel(false);
+    setNote('');
+    setIsEditingNote(false);
     if (recognitionRef.current) {
       recognitionRef.current.stop();
       recognitionRef.current = null;
+    }
+    if (noteRecognitionRef.current) {
+      noteRecognitionRef.current.stop();
+      noteRecognitionRef.current = null;
     }
   }, []);
 
@@ -155,6 +165,53 @@ export default function Home() {
   const handleLayoutChange = useCallback((newLayout: StoreLayout) => {
     setLayout(newLayout);
   }, []);
+
+  // 语音备注
+  const toggleNoteRecording = useCallback(() => {
+    if (isRecordingNote) {
+      // 停止录音
+      if (noteRecognitionRef.current) {
+        noteRecognitionRef.current.stop();
+      }
+      setIsRecordingNote(false);
+    } else {
+      // 开始录音
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) return;
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'zh-CN';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+
+      let finalTranscript = '';
+
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        let interim = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const t = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += t;
+          } else {
+            interim += t;
+          }
+        }
+        setNote(finalTranscript + interim);
+      };
+
+      recognition.onerror = () => {
+        setIsRecordingNote(false);
+      };
+
+      recognition.onend = () => {
+        setIsRecordingNote(false);
+      };
+
+      noteRecognitionRef.current = recognition;
+      recognition.start();
+      setIsRecordingNote(true);
+    }
+  }, [isRecordingNote]);
 
   // 更新店面尺寸
   const updateStoreSize = useCallback((width: number, length: number) => {
@@ -412,7 +469,121 @@ export default function Home() {
             )}
 
             {/* 布局图 */}
-            <LayoutCanvas layout={layout} onLayoutChange={handleLayoutChange} />
+            <LayoutCanvas layout={layout} onLayoutChange={handleLayoutChange} note={note} />
+
+            {/* 语音备注 */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                  </svg>
+                  语音备注
+                </h3>
+                <div className="flex gap-2">
+                  {!isEditingNote && note && (
+                    <button
+                      onClick={() => setIsEditingNote(true)}
+                      className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      编辑
+                    </button>
+                  )}
+                  {isEditingNote && (
+                    <button
+                      onClick={() => setIsEditingNote(false)}
+                      className="text-sm text-green-600 hover:text-green-700 flex items-center gap-1"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      完成
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {isEditingNote ? (
+                <div className="space-y-3">
+                  <textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="输入备注内容，或点击语音按钮录入..."
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none resize-none"
+                    rows={4}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={toggleNoteRecording}
+                      className={`flex-1 py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+                        isRecordingNote
+                          ? 'bg-red-500 text-white'
+                          : 'bg-purple-500 text-white hover:bg-purple-600'
+                      }`}
+                    >
+                      {isRecordingNote ? (
+                        <>
+                          <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                          停止录音
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                          </svg>
+                          语音录入
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {note ? (
+                    <div className="bg-purple-50 rounded-xl p-4">
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{note}</p>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-gray-400">
+                      <svg className="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                      </svg>
+                      <p className="text-sm">暂无备注</p>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => {
+                      setIsEditingNote(true);
+                      if (!note) {
+                        toggleNoteRecording();
+                      }
+                    }}
+                    className={`w-full py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+                      isRecordingNote
+                        ? 'bg-red-500 text-white'
+                        : 'bg-purple-500 text-white hover:bg-purple-600'
+                    }`}
+                  >
+                    {isRecordingNote ? (
+                      <>
+                        <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                        停止录音
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                        </svg>
+                        {note ? '重新录入' : '语音录入'}
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
 
             {/* 操作按钮 */}
             <div className="flex gap-3">
