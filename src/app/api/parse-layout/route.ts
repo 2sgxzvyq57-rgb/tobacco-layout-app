@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
           {
             id: 'obj_2',
             name: '烟草展示柜',
-            type: 'display',
+            type: 'showcase',
             x: 3.0,
             y: 0,
             width: 1.5,
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
             rotation: 0
           }
         ],
-        stairs: null
+        stairs: undefined
       };
 
       // 检查是否提到楼梯
@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
           y: 6.0,
           width: 0.8,
           length: 1.5,
-          direction: 'north'
+          direction: 'up-north'
         };
       }
 
