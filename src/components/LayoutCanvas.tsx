@@ -180,6 +180,7 @@ export function LayoutCanvas({ layout, onLayoutChange, className = '', note = ''
     if (!params) return null;
 
     const { toPixelX, toPixelY, scale } = params;
+    const hitPadding = 20; // 增大点击检测区域
 
     // 从后往前遍历，后绘制的物体在上面
     for (let i = layout.objects.length - 1; i >= 0; i--) {
@@ -189,7 +190,9 @@ export function LayoutCanvas({ layout, onLayoutChange, className = '', note = ''
       const objW = obj.width * scale;
       const objH = obj.length * scale;
 
-      if (px >= objPx && px <= objPx + objW && py >= objPy && py <= objPy + objH) {
+      // 增大点击检测区域，更容易选中
+      if (px >= objPx - hitPadding && px <= objPx + objW + hitPadding && 
+          py >= objPy - hitPadding && py <= objPy + objH + hitPadding) {
         return obj;
       }
     }
@@ -887,21 +890,21 @@ function drawObject(
 
   // 调整大小手柄（右下角）- 增大尺寸便于点击
   if (isSelected) {
-    const handleSize = 32;
+    const handleSize = 40;
     ctx.fillStyle = '#EF4444';
     ctx.fillRect(px + pw - handleSize / 2, py + ph - handleSize / 2, handleSize, handleSize);
     ctx.strokeStyle = '#FFFFFF';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 3;
     ctx.strokeRect(px + pw - handleSize / 2, py + ph - handleSize / 2, handleSize, handleSize);
     
     // 旋转手柄（左上角）- 增大尺寸便于点击
-    const rotateHandleSize = 16;
+    const rotateHandleSize = 24;
     ctx.fillStyle = '#10B981';
     ctx.beginPath();
     ctx.arc(px + rotateHandleSize, py + rotateHandleSize, rotateHandleSize, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = '#FFFFFF';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 3;
     ctx.stroke();
   }
 }
