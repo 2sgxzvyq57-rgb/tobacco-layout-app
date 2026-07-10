@@ -1,5 +1,5 @@
 // Service Worker for PWA
-const CACHE_NAME = 'tobacco-layout-v1';
+const CACHE_NAME = 'tobacco-layout-v2';
 const urlsToCache = [
   '/',
   '/manifest.json',
@@ -19,6 +19,7 @@ self.addEventListener('install', (event) => {
         console.log('Cache install failed:', err);
       })
   );
+  self.skipWaiting();
 });
 
 // Fetch event - serve from cache, fallback to network
@@ -30,9 +31,20 @@ self.addEventListener('fetch', (event) => {
         if (response) {
           return response;
         }
-        return fetch(event.request);
-      }
-    )
+        return fetch(event.request).then((response) => {
+          // Check if valid response
+          if (!response || response.status !== 200 || response.type !== 'basic') {
+            return response;
+          }
+          // Clone the response
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME)
+            .then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          return response;
+        });
+      })
   );
 });
 
@@ -50,4 +62,5 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
+  self.clients.claim();
 });
