@@ -136,7 +136,11 @@ export function LayoutCanvas({ layout, onLayoutChange, className = '', note = ''
 
     // ===== 绘制备注 =====
     if (note) {
-      drawNote(ctx, note, W, H);
+      const params = getCanvasParams();
+      if (params) {
+        const { offsetY, storePixelH } = params;
+        drawNote(ctx, note, W, H, offsetY + storePixelH);
+      }
     }
 
   }, [layout, selectedObjectId, getCanvasParams, note]);
@@ -963,7 +967,8 @@ function drawNote(
   ctx: CanvasRenderingContext2D,
   note: string,
   canvasWidth: number,
-  canvasHeight: number
+  canvasHeight: number,
+  storeBottom: number
 ) {
   if (!note) return;
 
@@ -1002,9 +1007,9 @@ function drawNote(
     }
   }
 
-  // 计算备注区域位置（底部）
+  // 计算备注区域位置（布局图下方）
   const noteHeight = lines.length * lineHeight + padding;
-  const noteY = canvasHeight - noteHeight - 20;
+  const noteY = storeBottom + 100; // 在布局图底部下方100px处
 
   // 绘制背景
   ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
