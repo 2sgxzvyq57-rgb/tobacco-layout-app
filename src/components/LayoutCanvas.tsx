@@ -202,7 +202,7 @@ export function LayoutCanvas({ layout, onLayoutChange, className = '' }: LayoutC
       const objW = obj.width * scale;
       const objH = obj.length * scale;
       
-      const edgeThreshold = 30;
+      const edgeThreshold = 50; // 增大检测区域，便于点击
       
       // 检测是否在右下角（调整大小）
       if (Math.abs(coords.x - (objPx + objW)) < edgeThreshold && 
@@ -331,6 +331,26 @@ export function LayoutCanvas({ layout, onLayoutChange, className = '' }: LayoutC
     onLayoutChange?.(newLayout);
   }, [selectedObjectId, layout, onLayoutChange]);
 
+  /** 获取选中的物体 */
+  const selectedObject = layout?.objects.find(obj => obj.id === selectedObjectId) || null;
+
+  /** 更新选中物体的尺寸 */
+  const updateSelectedObjectSize = useCallback((width: number, length: number) => {
+    if (!selectedObjectId || !layout) return;
+    const newLayout = {
+      ...layout,
+      objects: layout.objects.map(obj => {
+        if (obj.id !== selectedObjectId) return obj;
+        return {
+          ...obj,
+          width: Math.max(0.1, width),
+          length: Math.max(0.1, length),
+        };
+      }),
+    };
+    onLayoutChange?.(newLayout);
+  }, [selectedObjectId, layout, onLayoutChange]);
+
   return (
     <div className={`relative ${className}`}>
       <canvas
@@ -345,6 +365,98 @@ export function LayoutCanvas({ layout, onLayoutChange, className = '' }: LayoutC
         onTouchMove={handlePointerMove}
         onTouchEnd={handlePointerUp}
       />
+      
+      {/* 选中物体的尺寸调整面板 */}
+      {selectedObject && (
+        <div className="mt-3 bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+              调整 {selectedObject.name} 尺寸
+            </h4>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-3">
+            {/* 宽度调整 */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-gray-600">宽度（米）</label>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => updateSelectedObjectSize(selectedObject.width - 0.1, selectedObject.length)}
+                  className="w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 font-bold transition-colors"
+                >
+                  -
+                </button>
+                <input
+                  type="number"
+                  value={selectedObject.width}
+                  onChange={(e) => updateSelectedObjectSize(parseFloat(e.target.value) || 0.1, selectedObject.length)}
+                  min="0.1"
+                  step="0.1"
+                  className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                />
+                <button
+                  onClick={() => updateSelectedObjectSize(selectedObject.width + 0.1, selectedObject.length)}
+                  className="w-8 h-8 flex items-center justify-center bg-blue-100 hover:bg-blue-200 rounded-lg text-blue-700 font-bold transition-colors"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            
+            {/* 长度调整 */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-gray-600">长度（米）</label>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => updateSelectedObjectSize(selectedObject.width, selectedObject.length - 0.1)}
+                  className="w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 font-bold transition-colors"
+                >
+                  -
+                </button>
+                <input
+                  type="number"
+                  value={selectedObject.length}
+                  onChange={(e) => updateSelectedObjectSize(selectedObject.width, parseFloat(e.target.value) || 0.1)}
+                  min="0.1"
+                  step="0.1"
+                  className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                />
+                <button
+                  onClick={() => updateSelectedObjectSize(selectedObject.width, selectedObject.length + 0.1)}
+                  className="w-8 h-8 flex items-center justify-center bg-blue-100 hover:bg-blue-200 rounded-lg text-blue-700 font-bold transition-colors"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          {/* 快捷调整按钮 */}
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={() => updateSelectedObjectSize(selectedObject.width * 1.1, selectedObject.length * 1.1)}
+              className="flex-1 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium rounded-lg transition-colors"
+            >
+              放大10%
+            </button>
+            <button
+              onClick={() => updateSelectedObjectSize(selectedObject.width * 0.9, selectedObject.length * 0.9)}
+              className="flex-1 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-medium rounded-lg transition-colors"
+            >
+              缩小10%
+            </button>
+            <button
+              onClick={() => updateSelectedObjectSize(selectedObject.length, selectedObject.width)}
+              className="flex-1 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-medium rounded-lg transition-colors"
+            >
+              交换宽高
+            </button>
+          </div>
+        </div>
+      )}
       
       {/* 操作按钮 */}
       {layout && (
@@ -588,16 +700,24 @@ function drawObject(
   );
   ctx.textBaseline = 'alphabetic';
 
-  // 调整大小手柄（右下角）
+  // 调整大小手柄（右下角）- 增大尺寸便于点击
   if (isSelected) {
+    const handleSize = 32;
     ctx.fillStyle = '#EF4444';
-    ctx.fillRect(px + pw - 10, py + ph - 10, 20, 20);
+    ctx.fillRect(px + pw - handleSize / 2, py + ph - handleSize / 2, handleSize, handleSize);
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(px + pw - handleSize / 2, py + ph - handleSize / 2, handleSize, handleSize);
     
-    // 旋转手柄（左上角）
+    // 旋转手柄（左上角）- 增大尺寸便于点击
+    const rotateHandleSize = 16;
     ctx.fillStyle = '#10B981';
     ctx.beginPath();
-    ctx.arc(px + 10, py + 10, 10, 0, Math.PI * 2);
+    ctx.arc(px + rotateHandleSize, py + rotateHandleSize, rotateHandleSize, 0, Math.PI * 2);
     ctx.fill();
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 2;
+    ctx.stroke();
   }
 }
 
