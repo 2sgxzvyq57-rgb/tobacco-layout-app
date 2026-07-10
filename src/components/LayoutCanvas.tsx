@@ -330,8 +330,8 @@ export function LayoutCanvas({ layout, onLayoutChange, className = '', note = ''
     setSelectedObjectId(null);
   }, [selectedObjectId, layout, onLayoutChange]);
 
-  /** 旋转选中物体90度 */
-  const rotateSelectedObject = useCallback(() => {
+  /** 旋转选中物体指定角度 */
+  const rotateSelectedObjectBy = useCallback((degrees: number) => {
     if (!selectedObjectId || !layout) return;
     const newLayout = {
       ...layout,
@@ -339,12 +339,33 @@ export function LayoutCanvas({ layout, onLayoutChange, className = '', note = ''
         if (obj.id !== selectedObjectId) return obj;
         return {
           ...obj,
-          rotation: (obj.rotation + 90) % 360,
+          rotation: ((obj.rotation + degrees) % 360 + 360) % 360,
         };
       }),
     };
     onLayoutChange?.(newLayout);
   }, [selectedObjectId, layout, onLayoutChange]);
+
+  /** 设置选中物体的旋转角度 */
+  const setRotation = useCallback((rotation: number) => {
+    if (!selectedObjectId || !layout) return;
+    const newLayout = {
+      ...layout,
+      objects: layout.objects.map(obj => {
+        if (obj.id !== selectedObjectId) return obj;
+        return {
+          ...obj,
+          rotation: ((rotation % 360) + 360) % 360,
+        };
+      }),
+    };
+    onLayoutChange?.(newLayout);
+  }, [selectedObjectId, layout, onLayoutChange]);
+
+  /** 旋转选中物体90度 */
+  const rotateSelectedObject = useCallback(() => {
+    rotateSelectedObjectBy(90);
+  }, [rotateSelectedObjectBy]);
 
   /** 获取选中的物体 */
   const selectedObject = layout?.objects.find(obj => obj.id === selectedObjectId) || null;
@@ -449,25 +470,81 @@ export function LayoutCanvas({ layout, onLayoutChange, className = '', note = ''
             </div>
           </div>
           
+          {/* 旋转角度调整 */}
+          <div className="mt-3 space-y-2">
+            <label className="text-xs font-medium text-gray-600">旋转角度（°）</label>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => rotateSelectedObjectBy(-15)}
+                className="w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 font-bold transition-colors text-xs"
+              >
+                -15°
+              </button>
+              <input
+                type="number"
+                value={Math.round(selectedObject.rotation)}
+                onChange={(e) => setRotation(parseFloat(e.target.value) || 0)}
+                min="0"
+                max="360"
+                step="1"
+                className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              />
+              <button
+                onClick={() => rotateSelectedObjectBy(15)}
+                className="w-8 h-8 flex items-center justify-center bg-blue-100 hover:bg-blue-200 rounded-lg text-blue-700 font-bold transition-colors text-xs"
+              >
+                +15°
+              </button>
+            </div>
+          </div>
+          
           {/* 快捷调整按钮 */}
-          <div className="mt-3 flex gap-2">
+          <div className="mt-3 grid grid-cols-3 gap-2">
             <button
               onClick={() => updateSelectedObjectSize(selectedObject.width * 1.1, selectedObject.length * 1.1)}
-              className="flex-1 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium rounded-lg transition-colors"
+              className="py-1.5 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium rounded-lg transition-colors"
             >
               放大10%
             </button>
             <button
               onClick={() => updateSelectedObjectSize(selectedObject.width * 0.9, selectedObject.length * 0.9)}
-              className="flex-1 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-medium rounded-lg transition-colors"
+              className="py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-medium rounded-lg transition-colors"
             >
               缩小10%
             </button>
             <button
               onClick={() => updateSelectedObjectSize(selectedObject.length, selectedObject.width)}
-              className="flex-1 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-medium rounded-lg transition-colors"
+              className="py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-medium rounded-lg transition-colors"
             >
               交换宽高
+            </button>
+          </div>
+          
+          {/* 旋转快捷按钮 */}
+          <div className="mt-2 grid grid-cols-4 gap-2">
+            <button
+              onClick={() => rotateSelectedObjectBy(-90)}
+              className="py-1.5 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-medium rounded-lg transition-colors"
+            >
+              ↺ 90°
+            </button>
+            <button
+              onClick={() => rotateSelectedObjectBy(90)}
+              className="py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium rounded-lg transition-colors"
+            >
+              ↻ 90°
+            </button>
+            <button
+              onClick={() => rotateSelectedObjectBy(180)}
+              className="py-1.5 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 text-xs font-medium rounded-lg transition-colors"
+            >
+              ↻ 180°
+            </button>
+            <button
+              onClick={() => setRotation(0)}
+              className="py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-medium rounded-lg transition-colors"
+            >
+              归零
             </button>
           </div>
         </div>
