@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { LLMClient, Config, HeaderUtils } from 'coze-coding-dev-sdk';
 import type { StoreLayout, ParseResponse } from '@/lib/types';
 
 const SYSTEM_PROMPT = `你是一个烟草许可证实地核查助手，专门负责从语音描述中提取店面布局信息。
@@ -29,22 +28,22 @@ const SYSTEM_PROMPT = `你是一个烟草许可证实地核查助手，专门负
    - 每个物体必须有唯一的 id（如 "obj_1", "obj_2"）
    - 每个物体的 rotation 默认为 0
 
-5. **默认值**：
-   - 门宽度默认1.0米
-   - 门位置默认在墙面中间(0.5)
-   - 门所在墙面默认 south
-   - 如果用户没有明确说某个物体的尺寸，合理推断（柜台通常宽1-2米、长2-4米）
+5. **楼梯识别**：
+   - 如果语音中提到"二楼"、"楼上"、"夹层"、"复式"等，必须添加楼梯
+   - 楼梯默认位置：东北角（除非用户指定了其他位置）
+   - 楼梯默认尺寸：宽0.8米，长1.5米
+   - 上楼方向默认：north
 
-6. **楼梯识别**：
-   - 如果用户提到"二楼"、"楼上"、"夹层"、"复式"等关键词，必须添加楼梯信息
-   - 楼梯默认位置：靠墙角，通常在东北角或西北角
-   - 楼梯默认尺寸：宽0.8米，长2米
-   - 上楼方向默认：up-north（向北上楼）
-   - 如果用户没有明确说楼梯位置，放在东北角（x = width - 0.8, y = length - 2）
+6. **默认值**：
+   - 如果用户没有明确说明某些信息，使用合理的默认值
+   - 宽度默认：5米
+   - 长度默认：8米
+   - 门默认：南墙中间（wall: south, position: 0.5）
+   - 如果没有提到楼梯，stairs 为 null
 
 ## 输出格式
 
-严格返回以下JSON格式，不要包含任何其他文字：
+严格返回以下 JSON 格式，不要包含任何其他文字：
 
 \`\`\`json
 {
@@ -60,114 +59,122 @@ const SYSTEM_PROMPT = `你是一个烟草许可证实地核查助手，专门负
       "id": "obj_1",
       "name": "柜台",
       "type": "counter",
-      "x": 0.5,
-      "y": 2.0,
+      "x": 0,
+      "y": 0,
       "width": 2.0,
-      "length": 1.0,
-      "rotation": 0
-    },
-    {
-      "id": "obj_2",
-      "name": "仓储",
-      "type": "storage",
-      "x": 3.5,
-      "y": 6.0,
-      "width": 1.5,
-      "length": 2.0,
+      "length": 0.8,
       "rotation": 0
     }
   ],
   "stairs": {
-    "x": 4.2,
+    "x": 3.5,
     "y": 6.0,
     "width": 0.8,
-    "length": 2.0,
-    "direction": "up-north"
+    "length": 1.5,
+    "direction": "north"
   }
 }
 \`\`\`
 
-注意：stairs 字段是可选的，只有当用户提到"二楼"、"楼上"等关键词时才添加。
-
-## 物体类型映射
-- 柜台、收银台 → "counter"
-- 仓储、仓库、储物间 → "storage"  
-- 展示柜、烟草柜、货架 → "showcase"
-- 冰箱、冷柜 → "fridge"
-- 其他 → "other"`;
+如果用户没有提到楼梯，stairs 设为 null。`;
 
 export async function POST(request: NextRequest) {
   try {
-    const { text } = await request.json();
-    
+    const body = await request.json();
+    const { text } = body as { text: string };
+
     if (!text || typeof text !== 'string') {
-      return NextResponse.json<ParseResponse>(
-        { success: false, error: '请提供语音识别文本' },
+      return NextResponse.json(
+        { success: false, error: '请提供有效的文本内容' },
         { status: 400 }
       );
     }
 
-    const customHeaders = HeaderUtils.extractForwardHeaders(request.headers);
-    const config = new Config();
-    const client = new LLMClient(config, customHeaders);
+    // 检查是否配置了 OpenAI API 密钥
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: '未配置 OpenAI API 密钥。请在环境变量中设置 OPENAI_API_KEY',
+          hint: '你可以在 Vercel 控制台的 Settings -> Environment Variables 中添加'
+        },
+        { status: 500 }
+      );
+    }
 
-    const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
-      { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: `请从以下语音描述中提取店面布局信息：\n\n${text}` },
-    ];
-
-    const response = await client.invoke(messages, {
-      model: 'doubao-seed-2-0-lite-260215',
-      temperature: 0.1,
+    // 使用 OpenAI API
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: text },
+        ],
+        temperature: 0.3,
+        response_format: { type: 'json_object' },
+      }),
     });
 
-    // 解析 LLM 返回的 JSON
-    let content = response.content.trim();
-    
-    // 移除可能的 markdown 代码块标记
-    if (content.startsWith('```json')) {
-      content = content.slice(7);
-    } else if (content.startsWith('```')) {
-      content = content.slice(3);
-    }
-    if (content.endsWith('```')) {
-      content = content.slice(0, -3);
-    }
-    content = content.trim();
-
-    const layoutData = JSON.parse(content) as StoreLayout;
-
-    // 验证关键字段
-    if (!layoutData.width || !layoutData.length || !layoutData.door) {
-      throw new Error('AI返回的数据缺少必要字段');
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('OpenAI API error:', error);
+      return NextResponse.json(
+        { success: false, error: 'AI 解析失败，请重试' },
+        { status: 500 }
+      );
     }
 
-    // 确保每个物体都有 id 和 rotation
-    if (layoutData.objects) {
-      layoutData.objects = layoutData.objects.map((obj, index) => ({
-        ...obj,
-        id: obj.id || `obj_${index + 1}`,
-        rotation: obj.rotation ?? 0,
-      }));
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+
+    if (!content) {
+      return NextResponse.json(
+        { success: false, error: 'AI 返回内容为空' },
+        { status: 500 }
+      );
     }
 
-    // 确保面积对应
-    const expectedArea = layoutData.width * layoutData.length;
-    console.log(`[Layout] 店面: ${layoutData.width}m × ${layoutData.length}m = ${expectedArea}m²`);
-    console.log(`[Layout] 门: ${layoutData.door.wall}墙, 位置${layoutData.door.position}, 宽${layoutData.door.width}m`);
-    console.log(`[Layout] 物体: ${layoutData.objects?.length || 0}个`);
+    // 解析 JSON
+    let layout: StoreLayout;
+    try {
+      const parsed = JSON.parse(content);
+      layout = parsed as StoreLayout;
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'AI 返回格式错误' },
+        { status: 500 }
+      );
+    }
 
-    return NextResponse.json<ParseResponse>({
+    // 验证和补充默认值
+    if (!layout.width || layout.width <= 0) layout.width = 5;
+    if (!layout.length || layout.length <= 0) layout.length = 8;
+    if (!layout.door) {
+      layout.door = { wall: 'south', position: 0.5, width: 1.0 };
+    }
+    if (!layout.objects) layout.objects = [];
+
+    // 为每个物体添加 id 和 rotation（如果没有）
+    layout.objects = layout.objects.map((obj, index) => ({
+      ...obj,
+      id: obj.id || `obj_${index + 1}`,
+      rotation: obj.rotation ?? 0,
+    }));
+
+    return NextResponse.json({
       success: true,
-      data: layoutData,
+      data: layout,
     });
   } catch (error) {
-    console.error('[ParseLayout] Error:', error);
-    return NextResponse.json<ParseResponse>(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : '解析失败，请重试' 
-      },
+    console.error('Parse layout error:', error);
+    return NextResponse.json(
+      { success: false, error: '解析失败，请重试' },
       { status: 500 }
     );
   }
