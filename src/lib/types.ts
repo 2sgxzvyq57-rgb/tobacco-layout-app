@@ -23,12 +23,22 @@ export interface StoreObject {
   rotation: number; // 旋转角度（0-360度），0度表示默认朝向
 }
 
+/** 楼梯信息 */
+export interface StairInfo {
+  x: number;        // 左下角X坐标（米）
+  y: number;        // 左下角Y坐标（米）
+  width: number;    // 宽度（米），默认1.2米
+  length: number;   // 长度（米），默认3米
+  direction: 'up-north' | 'up-south' | 'up-east' | 'up-west'; // 上楼方向
+}
+
 /** 店面布局数据 */
 export interface StoreLayout {
   width: number;    // 店面宽度（米）
   length: number;   // 店面长度（米）
   door: DoorInfo;
   objects: StoreObject[];
+  stairs?: StairInfo; // 楼梯信息（可选，提到二楼时才有）
 }
 
 /** API 请求 */

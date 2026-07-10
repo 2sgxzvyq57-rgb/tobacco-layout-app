@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useCallback, useState } from 'react';
-import type { StoreLayout, StoreObject } from '@/lib/types';
+import type { StoreLayout, StoreObject, StairInfo } from '@/lib/types';
 
 interface LayoutCanvasProps {
   layout: StoreLayout | null;
@@ -124,6 +124,11 @@ export function LayoutCanvas({ layout, onLayoutChange, className = '', note = ''
         const isSelected = obj.id === selectedObjectId;
         drawObject(ctx, obj, toPixelX, toPixelY, scale, isSelected);
       }
+    }
+
+    // ===== 绘制楼梯 =====
+    if (layout.stairs) {
+      drawStairs(ctx, layout.stairs, toPixelX, toPixelY, scale);
     }
 
     // ===== 绘制指北针 =====
@@ -652,6 +657,97 @@ function drawDoor(
     ctx.textAlign = 'center';
     ctx.fillText('门', cx - 50, cy + 10);
   }
+}
+
+/** 绘制楼梯 */
+function drawStairs(
+  ctx: CanvasRenderingContext2D,
+  stairs: StairInfo,
+  toPixelX: (m: number) => number,
+  toPixelY: (m: number) => number,
+  scale: number
+) {
+  const px = toPixelX(stairs.x);
+  const py = toPixelY(stairs.y + stairs.length);
+  const pw = stairs.width * scale;
+  const ph = stairs.length * scale;
+
+  // 绘制楼梯背景
+  ctx.fillStyle = '#FEF3C7';
+  ctx.fillRect(px, py, pw, ph);
+
+  // 绘制楼梯边框
+  ctx.strokeStyle = '#92400E';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([]);
+  ctx.strokeRect(px, py, pw, ph);
+
+  // 绘制楼梯台阶（根据方向）
+  ctx.strokeStyle = '#92400E';
+  ctx.lineWidth = 2;
+  const steps = 8; // 台阶数量
+  
+  if (stairs.direction === 'up-north' || stairs.direction === 'up-south') {
+    // 水平台阶
+    const stepHeight = ph / steps;
+    for (let i = 0; i < steps; i++) {
+      const stepY = py + i * stepHeight;
+      ctx.beginPath();
+      ctx.moveTo(px, stepY);
+      ctx.lineTo(px + pw, stepY);
+      ctx.stroke();
+    }
+  } else {
+    // 垂直台阶
+    const stepWidth = pw / steps;
+    for (let i = 0; i < steps; i++) {
+      const stepX = px + i * stepWidth;
+      ctx.beginPath();
+      ctx.moveTo(stepX, py);
+      ctx.lineTo(stepX, py + ph);
+      ctx.stroke();
+    }
+  }
+
+  // 绘制上楼方向箭头
+  ctx.fillStyle = '#92400E';
+  ctx.strokeStyle = '#92400E';
+  ctx.lineWidth = 3;
+  const centerX = px + pw / 2;
+  const centerY = py + ph / 2;
+  const arrowSize = 20;
+
+  ctx.beginPath();
+  if (stairs.direction === 'up-north') {
+    // 向上箭头
+    ctx.moveTo(centerX, centerY - arrowSize);
+    ctx.lineTo(centerX - arrowSize / 2, centerY);
+    ctx.lineTo(centerX + arrowSize / 2, centerY);
+  } else if (stairs.direction === 'up-south') {
+    // 向下箭头
+    ctx.moveTo(centerX, centerY + arrowSize);
+    ctx.lineTo(centerX - arrowSize / 2, centerY);
+    ctx.lineTo(centerX + arrowSize / 2, centerY);
+  } else if (stairs.direction === 'up-east') {
+    // 向右箭头
+    ctx.moveTo(centerX + arrowSize, centerY);
+    ctx.lineTo(centerX, centerY - arrowSize / 2);
+    ctx.lineTo(centerX, centerY + arrowSize / 2);
+  } else {
+    // 向左箭头
+    ctx.moveTo(centerX - arrowSize, centerY);
+    ctx.lineTo(centerX, centerY - arrowSize / 2);
+    ctx.lineTo(centerX, centerY + arrowSize / 2);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  // 绘制"楼梯"文字
+  ctx.fillStyle = '#92400E';
+  ctx.font = 'bold 28px "PingFang SC", "Microsoft YaHei", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('楼梯', centerX, centerY + arrowSize + 25);
 }
 
 /** 绘制物体（矩形 + 名称 + 尺寸 + 选中高亮） */
