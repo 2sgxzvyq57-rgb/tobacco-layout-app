@@ -90,42 +90,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 检查是否配置了 OpenAI API 密钥
-    const apiKey = process.env.OPENAI_API_KEY;
+    // 检查是否配置了豆包 API 密钥
+    const apiKey = process.env.DOUBAO_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
         { 
           success: false, 
-          error: '未配置 OpenAI API 密钥。请在环境变量中设置 OPENAI_API_KEY',
-          hint: '你可以在 Vercel 控制台的 Settings -> Environment Variables 中添加'
+          error: '未配置豆包 API 密钥。请在环境变量中设置 DOUBAO_API_KEY',
+          hint: '你可以在 Vercel 控制台的 Settings -> Environment Variables 中添加，或在 .env.local 文件中配置'
         },
         { status: 500 }
       );
     }
 
-    // 使用 OpenAI API
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    // 使用豆包 API
+    const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'doubao-pro-32k',
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: text },
         ],
         temperature: 0.3,
-        response_format: { type: 'json_object' },
       }),
     });
 
     if (!response.ok) {
       const error = await response.text();
-      console.error('OpenAI API error:', error);
+      console.error('豆包 API error:', error);
       return NextResponse.json(
-        { success: false, error: 'AI 解析失败，请重试' },
+        { success: false, error: 'AI 解析失败，请重试', details: error },
         { status: 500 }
       );
     }
