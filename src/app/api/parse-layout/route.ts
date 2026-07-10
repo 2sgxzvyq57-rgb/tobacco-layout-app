@@ -92,15 +92,68 @@ export async function POST(request: NextRequest) {
 
     // 检查是否配置了豆包 API 密钥
     const apiKey = process.env.DOUBAO_API_KEY;
+    
+    // 如果没有配置 API 密钥，使用模拟数据
     if (!apiKey) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: '未配置豆包 API 密钥。请在环境变量中设置 DOUBAO_API_KEY',
-          hint: '你可以在 Vercel 控制台的 Settings -> Environment Variables 中添加，或在 .env.local 文件中配置'
+      const mockLayout: StoreLayout = {
+        width: 5.0,
+        length: 8.0,
+        door: {
+          wall: 'south',
+          position: 0.5,
+          width: 1.0
         },
-        { status: 500 }
-      );
+        objects: [
+          {
+            id: 'obj_1',
+            name: '柜台',
+            type: 'counter',
+            x: 0.5,
+            y: 0,
+            width: 2.0,
+            length: 0.8,
+            rotation: 0
+          },
+          {
+            id: 'obj_2',
+            name: '烟草展示柜',
+            type: 'display',
+            x: 3.0,
+            y: 0,
+            width: 1.5,
+            length: 0.6,
+            rotation: 0
+          },
+          {
+            id: 'obj_3',
+            name: '仓储区',
+            type: 'storage',
+            x: 0,
+            y: 6.0,
+            width: 2.0,
+            length: 2.0,
+            rotation: 0
+          }
+        ],
+        stairs: null
+      };
+
+      // 检查是否提到楼梯
+      if (text.includes('二楼') || text.includes('楼上') || text.includes('夹层') || text.includes('复式')) {
+        mockLayout.stairs = {
+          x: 3.5,
+          y: 6.0,
+          width: 0.8,
+          length: 1.5,
+          direction: 'north'
+        };
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: mockLayout,
+        message: '（演示模式）未配置API密钥，使用模拟数据。配置 DOUBAO_API_KEY 后可使用真实AI解析。'
+      } as ParseResponse);
     }
 
     // 使用豆包 API
