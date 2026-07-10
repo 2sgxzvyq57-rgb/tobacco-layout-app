@@ -131,8 +131,8 @@ export function LayoutCanvas({ layout, onLayoutChange, className = '', note = ''
       drawStairs(ctx, layout.stairs, toPixelX, toPixelY, scale);
     }
 
-    // ===== 绘制指北针 =====
-    drawCompass(ctx, 140, H - 140);
+    // ===== 绘制指北针（左上角，避免与底部备注重叠） =====
+    drawCompass(ctx, 140, 140);
 
     // ===== 绘制备注 =====
     if (note) {
