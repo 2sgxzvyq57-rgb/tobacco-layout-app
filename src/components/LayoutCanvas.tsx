@@ -404,24 +404,24 @@ export function LayoutCanvas({ layout, onLayoutChange, className = '', note = ''
       
       {/* 选中物体的尺寸调整面板 */}
       {selectedObject && (
-        <div className="mt-3 bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="mt-2 bg-white border border-gray-200 rounded-lg p-2 shadow-sm">
+          <div className="flex items-center justify-between mb-1">
+            <h4 className="text-xs font-semibold text-gray-900 flex items-center gap-1">
+              <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
               </svg>
-              调整 {selectedObject.name} 尺寸
+              调整 {selectedObject.name}
             </h4>
           </div>
           
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             {/* 宽度调整 */}
-            <div className="space-y-2">
+            <div className="space-y-1">
               <label className="text-xs font-medium text-gray-600">宽度（米）</label>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 <button
                   onClick={() => updateSelectedObjectSize(selectedObject.width - 0.1, selectedObject.length)}
-                  className="w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 font-bold transition-colors"
+                  className="w-6 h-6 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded text-gray-700 font-bold transition-colors text-xs"
                 >
                   -
                 </button>
@@ -431,11 +431,11 @@ export function LayoutCanvas({ layout, onLayoutChange, className = '', note = ''
                   onChange={(e) => updateSelectedObjectSize(parseFloat(e.target.value) || 0.1, selectedObject.length)}
                   min="0.1"
                   step="0.1"
-                  className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="flex-1 px-1 py-1 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none min-w-0"
                 />
                 <button
                   onClick={() => updateSelectedObjectSize(selectedObject.width + 0.1, selectedObject.length)}
-                  className="w-8 h-8 flex items-center justify-center bg-blue-100 hover:bg-blue-200 rounded-lg text-blue-700 font-bold transition-colors"
+                  className="w-6 h-6 flex items-center justify-center bg-blue-100 hover:bg-blue-200 rounded text-blue-700 font-bold transition-colors text-xs"
                 >
                   +
                 </button>
@@ -443,12 +443,12 @@ export function LayoutCanvas({ layout, onLayoutChange, className = '', note = ''
             </div>
             
             {/* 长度调整 */}
-            <div className="space-y-2">
+            <div className="space-y-1">
               <label className="text-xs font-medium text-gray-600">长度（米）</label>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 <button
                   onClick={() => updateSelectedObjectSize(selectedObject.width, selectedObject.length - 0.1)}
-                  className="w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 font-bold transition-colors"
+                  className="w-6 h-6 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded text-gray-700 font-bold transition-colors text-xs"
                 >
                   -
                 </button>
@@ -458,11 +458,11 @@ export function LayoutCanvas({ layout, onLayoutChange, className = '', note = ''
                   onChange={(e) => updateSelectedObjectSize(selectedObject.width, parseFloat(e.target.value) || 0.1)}
                   min="0.1"
                   step="0.1"
-                  className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="flex-1 px-1 py-1 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none min-w-0"
                 />
                 <button
                   onClick={() => updateSelectedObjectSize(selectedObject.width, selectedObject.length + 0.1)}
-                  className="w-8 h-8 flex items-center justify-center bg-blue-100 hover:bg-blue-200 rounded-lg text-blue-700 font-bold transition-colors"
+                  className="w-6 h-6 flex items-center justify-center bg-blue-100 hover:bg-blue-200 rounded text-blue-700 font-bold transition-colors text-xs"
                 >
                   +
                 </button>
@@ -471,12 +471,12 @@ export function LayoutCanvas({ layout, onLayoutChange, className = '', note = ''
           </div>
           
           {/* 旋转角度调整 */}
-          <div className="mt-3 space-y-2">
+          <div className="mt-1 space-y-1">
             <label className="text-xs font-medium text-gray-600">旋转角度（°）</label>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <button
                 onClick={() => rotateSelectedObjectBy(-15)}
-                className="w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 font-bold transition-colors text-xs"
+                className="w-6 h-6 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded text-gray-700 font-bold transition-colors text-xs"
               >
                 -15°
               </button>
@@ -487,11 +487,11 @@ export function LayoutCanvas({ layout, onLayoutChange, className = '', note = ''
                 min="0"
                 max="360"
                 step="1"
-                className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                className="flex-1 px-1 py-1 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none min-w-0"
               />
               <button
                 onClick={() => rotateSelectedObjectBy(15)}
-                className="w-8 h-8 flex items-center justify-center bg-blue-100 hover:bg-blue-200 rounded-lg text-blue-700 font-bold transition-colors text-xs"
+                className="w-6 h-6 flex items-center justify-center bg-blue-100 hover:bg-blue-200 rounded text-blue-700 font-bold transition-colors text-xs"
               >
                 +15°
               </button>
@@ -499,52 +499,52 @@ export function LayoutCanvas({ layout, onLayoutChange, className = '', note = ''
           </div>
           
           {/* 快捷调整按钮 */}
-          <div className="mt-3 grid grid-cols-3 gap-2">
+          <div className="mt-1 grid grid-cols-4 gap-1">
             <button
               onClick={() => updateSelectedObjectSize(selectedObject.width * 1.1, selectedObject.length * 1.1)}
-              className="py-1.5 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium rounded-lg transition-colors"
+              className="py-1 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium rounded transition-colors"
             >
-              放大10%
+              放大
             </button>
             <button
               onClick={() => updateSelectedObjectSize(selectedObject.width * 0.9, selectedObject.length * 0.9)}
-              className="py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-medium rounded-lg transition-colors"
+              className="py-1 bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-medium rounded transition-colors"
             >
-              缩小10%
+              缩小
             </button>
             <button
               onClick={() => updateSelectedObjectSize(selectedObject.length, selectedObject.width)}
-              className="py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-medium rounded-lg transition-colors"
+              className="py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-medium rounded transition-colors"
             >
-              交换宽高
+              交换
+            </button>
+            <button
+              onClick={() => setRotation(0)}
+              className="py-1 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-medium rounded transition-colors"
+            >
+              归零
             </button>
           </div>
           
           {/* 旋转快捷按钮 */}
-          <div className="mt-2 grid grid-cols-4 gap-2">
+          <div className="mt-1 grid grid-cols-3 gap-1">
             <button
               onClick={() => rotateSelectedObjectBy(-90)}
-              className="py-1.5 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-medium rounded-lg transition-colors"
+              className="py-1 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-medium rounded transition-colors"
             >
               ↺ 90°
             </button>
             <button
               onClick={() => rotateSelectedObjectBy(90)}
-              className="py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium rounded-lg transition-colors"
+              className="py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium rounded transition-colors"
             >
               ↻ 90°
             </button>
             <button
               onClick={() => rotateSelectedObjectBy(180)}
-              className="py-1.5 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 text-xs font-medium rounded-lg transition-colors"
+              className="py-1 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 text-xs font-medium rounded transition-colors"
             >
               ↻ 180°
-            </button>
-            <button
-              onClick={() => setRotation(0)}
-              className="py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-medium rounded-lg transition-colors"
-            >
-              归零
             </button>
           </div>
         </div>
@@ -588,10 +588,10 @@ export function LayoutCanvas({ layout, onLayoutChange, className = '', note = ''
         </div>
       )}
 
-      {/* 操作提示 */}
+      {/* 操作提示 - 移到顶部避免遮挡 */}
       {layout && selectedObjectId && (
-        <div className="absolute bottom-3 left-3 bg-black/70 text-white px-3 py-2 rounded-lg text-sm">
-          已选中物体 | 拖拽移动 | 右下角拖拽调整大小 | 左上角拖拽旋转
+        <div className="absolute top-3 left-3 bg-blue-600/90 text-white px-3 py-1.5 rounded-lg text-xs shadow-md">
+          已选中 | 拖拽移动 | 手柄调整
         </div>
       )}
     </div>
