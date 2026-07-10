@@ -197,6 +197,7 @@ export function LayoutCanvas({ layout, onLayoutChange, className = '', note = ''
   }, [layout, getCanvasParams]);
 
   const handlePointerDown = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault(); // 阻止默认行为，防止页面滚动
     const coords = getCanvasCoords(e);
     if (!coords || !layout) return;
 
@@ -240,6 +241,7 @@ export function LayoutCanvas({ layout, onLayoutChange, className = '', note = ''
   }, [layout, getCanvasCoords, findObjectAtPoint, getCanvasParams]);
 
   const handlePointerMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault(); // 阻止默认行为，防止页面滚动
     if (mode === 'none' || !dragStart || !objectStart || !selectedObjectId || !layout) return;
     
     const coords = getCanvasCoords(e);
@@ -392,7 +394,7 @@ export function LayoutCanvas({ layout, onLayoutChange, className = '', note = ''
       <canvas
         ref={canvasRef}
         className="w-full h-auto max-h-[70vh] border border-gray-200 rounded-lg shadow-sm bg-white cursor-pointer"
-        style={{ aspectRatio: '1 / 1' }}
+        style={{ aspectRatio: '1 / 1', touchAction: 'none' }}
         onMouseDown={handlePointerDown}
         onMouseMove={handlePointerMove}
         onMouseUp={handlePointerUp}
