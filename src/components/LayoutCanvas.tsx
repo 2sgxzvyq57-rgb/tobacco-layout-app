@@ -1089,9 +1089,9 @@ function drawNote(
     }
   }
 
-  // 计算备注区域位置（布局图下方）
+  // 计算备注区域位置（布局图下方，留出足够空间给尺寸标注）
   const noteHeight = lines.length * lineHeight + padding;
-  const noteY = storeBottom + 100; // 在布局图底部下方100px处
+  const noteY = storeBottom + 180; // 在布局图底部下方180px处，避免遮挡尺寸标注
 
   // 绘制背景
   ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
