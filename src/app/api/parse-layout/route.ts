@@ -196,9 +196,16 @@ export async function POST(request: NextRequest) {
     // 解析 JSON
     let layout: StoreLayout;
     try {
-      const parsed = JSON.parse(content);
+      // 移除 markdown 代码块标记
+      let cleanContent = content.trim();
+      if (cleanContent.startsWith('```')) {
+        cleanContent = cleanContent.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+      }
+      
+      const parsed = JSON.parse(cleanContent);
       layout = parsed as StoreLayout;
-    } catch {
+    } catch (e) {
+      console.error('JSON parse error:', e, 'Content:', content);
       return NextResponse.json(
         { success: false, error: 'AI 返回格式错误' },
         { status: 500 }
