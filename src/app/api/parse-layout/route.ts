@@ -157,6 +157,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 使用豆包 API
+    const modelId = process.env.DOUBAO_MODEL_ID || 'doubao-pro-32k';
     const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
       method: 'POST',
       headers: {
@@ -164,7 +165,7 @@ export async function POST(request: NextRequest) {
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'doubao-pro-32k',
+        model: modelId,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: text },
