@@ -118,63 +118,155 @@ export default function Home() {
     setState('processing');
     setErrorMsg('');
 
-    // 本地模拟数据（备用方案）
-    const getMockLayout = (text: string): StoreLayout => {
-      const mockLayout: StoreLayout = {
-        width: 5.0,
-        length: 8.0,
-        door: {
-          wall: 'south',
-          position: 0.5,
-          width: 1.0
-        },
-        objects: [
-          {
-            id: 'obj_1',
-            name: '柜台',
-            type: 'counter',
-            x: 0.5,
-            y: 0,
-            width: 2.0,
-            length: 0.8,
-            rotation: 0
-          },
-          {
-            id: 'obj_2',
-            name: '烟草展示柜',
-            type: 'showcase',
-            x: 3.0,
-            y: 0,
-            width: 1.5,
-            length: 0.6,
-            rotation: 0
-          },
-          {
-            id: 'obj_3',
-            name: '仓储区',
-            type: 'storage',
-            x: 0,
-            y: 6.0,
-            width: 2.0,
-            length: 2.0,
-            rotation: 0
-          }
-        ],
-        stairs: undefined
-      };
+    // 本地智能解析（根据关键词生成布局）
+    const parseLayoutLocally = (text: string): StoreLayout => {
+      // 提取尺寸
+      const widthMatch = text.match(/宽\s*(\d+(?:\.\d+)?)\s*米/);
+      const lengthMatch = text.match(/(?:长|进深|深度)\s*(\d+(?:\.\d+)?)\s*米/);
+      const width = widthMatch ? parseFloat(widthMatch[1]) : 5.0;
+      const length = lengthMatch ? parseFloat(lengthMatch[1]) : 8.0;
 
-      // 检查是否提到楼梯
+      // 提取门的位置
+      let doorWall: 'north' | 'south' | 'east' | 'west' = 'south';
+      let doorPosition = 0.5;
+      
+      if (text.includes('南墙') || text.includes('南边') || text.includes('前面')) {
+        doorWall = 'south';
+      } else if (text.includes('北墙') || text.includes('北边') || text.includes('后面')) {
+        doorWall = 'north';
+      } else if (text.includes('东墙') || text.includes('东边') || text.includes('右边')) {
+        doorWall = 'east';
+      } else if (text.includes('西墙') || text.includes('西边') || text.includes('左边')) {
+        doorWall = 'west';
+      }
+
+      if (text.includes('中间') || text.includes('中央')) {
+        doorPosition = 0.5;
+      } else if (text.includes('左边') || text.includes('左侧')) {
+        doorPosition = 0.25;
+      } else if (text.includes('右边') || text.includes('右侧')) {
+        doorPosition = 0.75;
+      }
+
+      // 提取物体
+      const objects: Array<{
+        id: string;
+        name: string;
+        type: 'counter' | 'storage' | 'showcase' | 'fridge' | 'other';
+        x: number;
+        y: number;
+        width: number;
+        length: number;
+        rotation: number;
+      }> = [];
+
+      let objId = 1;
+
+      // 柜台
+      if (text.includes('柜台') || text.includes('收银')) {
+        const counterX = text.includes('进门') && text.includes('右手边') ? 0.5 : 0;
+        const counterY = text.includes('进门') ? 0 : length - 1;
+        objects.push({
+          id: `obj_${objId++}`,
+          name: '柜台',
+          type: 'counter',
+          x: counterX,
+          y: counterY,
+          width: 2.0,
+          length: 0.8,
+          rotation: 0
+        });
+      }
+
+      // 烟草展示柜
+      if (text.includes('展示柜') || text.includes('烟草柜') || text.includes('烟柜')) {
+        objects.push({
+          id: `obj_${objId++}`,
+          name: '烟草展示柜',
+          type: 'showcase',
+          x: text.includes('右手边') ? width - 1.5 : 0,
+          y: text.includes('靠墙') ? 0 : 2,
+          width: 1.5,
+          length: 0.6,
+          rotation: 0
+        });
+      }
+
+      // 仓储区
+      if (text.includes('仓储') || text.includes('仓库') || text.includes('储物')) {
+        objects.push({
+          id: `obj_${objId++}`,
+          name: '仓储区',
+          type: 'storage',
+          x: 0,
+          y: length - 2,
+          width: 2.0,
+          length: 2.0,
+          rotation: 0
+        });
+      }
+
+      // 冰箱
+      if (text.includes('冰箱') || text.includes('冷柜')) {
+        objects.push({
+          id: `obj_${objId++}`,
+          name: '冰箱',
+          type: 'fridge',
+          x: width - 1,
+          y: length - 2,
+          width: 0.8,
+          length: 0.8,
+          rotation: 0
+        });
+      }
+
+      // 如果没有识别到任何物体，添加默认物体
+      if (objects.length === 0) {
+        objects.push({
+          id: `obj_${objId++}`,
+          name: '柜台',
+          type: 'counter',
+          x: 0.5,
+          y: 0,
+          width: 2.0,
+          length: 0.8,
+          rotation: 0
+        });
+        objects.push({
+          id: `obj_${objId++}`,
+          name: '烟草展示柜',
+          type: 'showcase',
+          x: 3.0,
+          y: 0,
+          width: 1.5,
+          length: 0.6,
+          rotation: 0
+        });
+      }
+
+      // 楼梯
+      let stairs = undefined;
       if (text.includes('二楼') || text.includes('楼上') || text.includes('夹层') || text.includes('复式')) {
-        mockLayout.stairs = {
-          x: 3.5,
-          y: 6.0,
+        stairs = {
+          x: width - 1,
+          y: length - 2,
           width: 0.8,
           length: 1.5,
-          direction: 'up-north'
+          direction: 'up-north' as const
         };
       }
 
-      return mockLayout;
+      return {
+        width,
+        length,
+        door: {
+          wall: doorWall,
+          position: doorPosition,
+          width: 1.0
+        },
+        objects,
+        stairs
+      };
     };
 
     try {
@@ -186,22 +278,23 @@ export default function Home() {
 
       const data = await res.json();
 
-      if (data.success && data.data) {
+      if (data.success && data.data && !data.message?.includes('演示模式')) {
+        // 使用真实AI解析结果
         setLayout(data.data);
         setState('done');
         setShowAdjustPanel(true);
       } else {
-        // API失败，使用本地模拟数据
-        console.warn('API调用失败，使用本地模拟数据');
-        setLayout(getMockLayout(text));
+        // API失败或演示模式，使用本地智能解析
+        console.warn('使用本地智能解析');
+        setLayout(parseLayoutLocally(text));
         setState('done');
         setShowAdjustPanel(true);
       }
     } catch (err) {
       console.error('Generate layout error:', err);
-      // 网络错误，使用本地模拟数据
-      console.warn('网络请求失败，使用本地模拟数据');
-      setLayout(getMockLayout(text));
+      // 网络错误，使用本地智能解析
+      console.warn('网络请求失败，使用本地智能解析');
+      setLayout(parseLayoutLocally(text));
       setState('done');
       setShowAdjustPanel(true);
     }
